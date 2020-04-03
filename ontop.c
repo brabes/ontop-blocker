@@ -1,12 +1,15 @@
 
 #include <windows.h>
 #include <windowsx.h>
+#include <shlwapi.h>
+#include <shlobj.h>
 
 #include <dwmapi.h>
 
 #include <stdbool.h>
 
 const size_t PSEUDO_BORDER_WIDTH = 5;
+RECT g_rect;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -110,6 +113,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		if(wParam != VK_ESCAPE)
 			break;
 	case WM_DESTROY:
+		GetWindowRect(hWnd, &g_rect);
 		PostQuitMessage(0);
 		return 0;
 	case WM_PAINT:
@@ -131,6 +135,26 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdS
 	HWND hWnd;
 	WNDCLASS wc;
 	MSG msg;
+	RECT pos;
+	CHAR szPath[MAX_PATH];
+	HANDLE hFile;
+	DWORD dwIO;
+
+	pos.left = pos.right = pos.top = pos.bottom = CW_USEDEFAULT;
+	if(SUCCEEDED(SHGetFolderPath(NULL, CSIDL_APPDATA, NULL, 0, szPath)))
+		PathAppend(szPath, "\\OnTopBlocker\\");
+	if(!PathFileExists(szPath))
+		SHCreateDirectoryEx(NULL, szPath, NULL);
+	PathAppend(szPath, "config.bin");
+
+	if(PathFileExists(szPath))
+	{
+		dwIO = 0;
+		hFile = CreateFile(szPath, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
+		if(!ReadFile(hFile, &pos, sizeof(pos), &dwIO, NULL) || dwIO != sizeof(pos))
+			pos.left = pos.right = pos.top = pos.bottom = CW_USEDEFAULT;
+		CloseHandle(hFile);
+	}
 
 	ZeroMemory(&wc, sizeof(wc));
 	wc.lpfnWndProc = WndProc;
@@ -141,7 +165,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdS
 
 	hWnd = CreateWindowEx(0, "OnTopBlockerClass", "On-Top Blocker",
 			WS_VISIBLE,
-			CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+			pos.left, pos.top, pos.right, pos.bottom,
 			NULL, NULL, hInstance, NULL);
 	SetForegroundWindow(hWnd);
 	SetWindowLong(hWnd, GWL_STYLE, 0);
@@ -153,6 +177,13 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpCmdLine, int nCmdS
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+
+	g_rect.right -= g_rect.left;
+	g_rect.bottom -= g_rect.top;
+	dwIO = 0;
+	hFile = CreateFile(szPath, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+	WriteFile(hFile, &g_rect, sizeof(g_rect), &dwIO, NULL);
+	CloseHandle(hFile);
 
 	return 0;
 }
