@@ -8,7 +8,7 @@
 
 #include <stdbool.h>
 
-const size_t PSEUDO_BORDER_WIDTH = 5;
+const LONG PSEUDO_BORDER_WIDTH = 5;
 RECT g_rect;
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
